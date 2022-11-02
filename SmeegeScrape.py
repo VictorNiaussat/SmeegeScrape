@@ -32,8 +32,9 @@ import string
 import fnmatch
 from argparse import RawTextHelpFormatter
 from collections import OrderedDict
-from urllib import quote
-from urllib2 import urlopen
+from urllib.parse import quote
+from urllib.request import urlopen
+from bs4 import BeautifulSoup
 
 title = "\n===SmeegeSec's========================================= \n"
 title += "   ____                       ____                      \n"
@@ -43,7 +44,7 @@ title += "/___/_/_/_/\__/\__/\_, /\__/___/\__/_/  \_,_/ .__/\__/  \n"
 title += "                  /___/                    /_/          \n"
 title += "================================================v0.6=== \n"
 title += "\n"
-print title
+print (title)
 
 parser = argparse.ArgumentParser(description=title,formatter_class=RawTextHelpFormatter)
 
@@ -70,11 +71,12 @@ def getPDFContent(path):
     try:
 	    pdf = PyPDF2.PdfFileReader(file(path, "rb"))
     except:
-    	print 'Error reading: ' + path + '. Skipping.'
-    	return
+        print ('Error reading: ' + path + '. Skipping.')
+        # raise KeyError
+        
     	
     if pdf.isEncrypted:
-        print 'pdf ' + path + ' is encrypted, trying blank password...'
+        print ('pdf ' + path + ' is encrypted, trying blank password...')
         pdf.decrypt('') #If you want to provide your own password for an encrypted pdf, modify code here.
     
     content = ""
@@ -112,22 +114,23 @@ def webUrl(fullUrl):
         try:
             u = urlopen(urlInput)
             html = u.read()
-            raw = nltk.clean_html(html)
+            raw = BeautifulSoup(html,features="lxml").get_text() 
+
             tokens = nltk.word_tokenize(raw)
             if args.minLength or args.maxLength:
                 for token in tokens:
-                    if not(len(token.translate(None,charBlacklist)) < minl or len(token) > maxl):
-                        wordList.append(str(token).translate(None,charBlacklist))
+                    if not(len(token.translate(charBlacklist)) < minl or len(token) > maxl):
+                        wordList.append(str(token).translate(charBlacklist))
             else:
                 for token in tokens:
-                    wordList.append(str(token).translate(None,charBlacklist))
-            print "Scraping URL - {0}".format(fullUrl)
+                    wordList.append(str(token).translate(charBlacklist))
+            print ("Scraping URL - {0}".format(fullUrl))
         except Exception as e:
-            print 'There was an error connecting to or parsing {0}'.format(fullUrl)
-            print 'Error: %s' % e
-            print 'If you are not using NLTK version 2.0.4 please uninstall the current version and install 2.0.4 using \'sudo pip install -Iv nltk==2.0.4\''
+            print ('There was an error connecting to or parsing {0}'.format(fullUrl))
+            print ('Error: %s' % e)
+            print ('If you are not using NLTK version 2.0.4 please uninstall the current version and install 2.0.4 using \'sudo pip install -Iv nltk==2.0.4\'')
     else:
-        print 'INVALID URL - {0}. Format must be http(s)://www.smeegesec.com.'.format(fullUrl)
+        print( 'INVALID URL - {0}. Format must be http(s)://www.smeegesec.com.'.format(fullUrl))
 
 def webList(webListFile):
     if os.path.isfile(webListFile):
@@ -139,18 +142,18 @@ def webList(webListFile):
 
         f.close()
     else:
-        print 'Error opening file: {0}'.format(fileInput)
+        print ('Error opening file: {0}'.format(fileInput))
 
 def localFile(fileInput):
     if os.path.isfile(fileInput):
-        print "Scraping Local File - {0}".format(fileInput)
+        print ("Scraping Local File - {0}".format(fileInput))
         mimetypes.init()
         file_type, file_encoding = mimetypes.guess_type(fileInput)
-        print file_type
+        print (file_type)
         if file_type == 'application/pdf':
             getPDFContent(fileInput)
         elif file_type == 'text/html':
-            raw = nltk.clean_html(open(fileInput).read())
+            raw =  BeautifulSoup(open(fileInput).read(),features="lxml").get_text() 
             tokens = nltk.word_tokenize(raw)
             if args.minLength or args.maxLength:
                 for token in tokens:
@@ -195,7 +198,7 @@ def localFile(fileInput):
                         for word in set(sentance.split()):
                             wordList.append(str(word.encode('ascii','ignore')).translate(None,charBlacklist))
             except Exception as e:
-                print 'Error opening file: {0}'.format(fileInput)
+                print ('Error opening file: {0}'.format(fileInput))
                 pass
         else: #'text/plain' or unknown format
             try:
@@ -209,14 +212,14 @@ def localFile(fileInput):
                     for word in words:
                         wordList.append(str(word).translate(None,charBlacklist))
             except:
-                print 'Error opening file: {0}'.format(fileInput)
+                print ('Error opening file: {0}'.format(fileInput))
                 pass
     else:
-        print 'Error opening file: {0}'.format(fileInput)
+        print( 'Error opening file: {0}'.format(fileInput))
 
 def fileDir(dirInput, recursive):
     if os.path.isdir(dirInput):
-        print "Scraping Files in Local Directory {0}- {1}".format('(recursively) ' if recursive else '', dirInput)
+        print ("Scraping Files in Local Directory {0}- {1}".format('(recursively) ' if recursive else '', dirInput))
         mimetypes.init()
         fileTypes = ('*.conf', '*.cs', '*.js', '*.c', '*.cpp', '*.c++', '*.pdf', '*.docx', '*.txt', '*.csv', '*.py', '*.cpp', '*.pl', '*.log', '*.rtf', '*.css', '*.dat', '*.html', '*.php', '*.pps', '*.ppt', '*.pptx', '*.sh', '*.xml', '*.xsl')
         if recursive:
@@ -232,7 +235,7 @@ def fileDir(dirInput, recursive):
                     file_type, file_encoding = mimetypes.guess_type(globFile)
                     localFile(globFile)
     else:
-        print 'Error accessing directory: {0}'.format(dirInput)
+        print ('Error accessing directory: {0}'.format(dirInput))
 
 def output():
     try:
@@ -246,11 +249,11 @@ def output():
             outputFile.write('\n')
         outputFile.close()
         
-        print '\n{0} unique words have been scraped.'.format(len(wordListFinal))
-        print 'Output file successfully written: {0}'.format(outputFile.name)
+        print ('\n{0} unique words have been scraped.'.format(len(wordListFinal)))
+        print ('Output file successfully written: {0}'.format(outputFile.name))
     except Exception as e:
-        print 'Error creating output file: {0}'.format(outputFile.name)
-        print e
+        print ('Error creating output file: {0}'.format(outputFile.name))
+        print (e)
 
 if __name__ == "__main__":
 
@@ -261,7 +264,7 @@ if __name__ == "__main__":
         minl = args.minLength if args.minLength else 3
         maxl = args.maxLength if args.maxLength else 30
         if minl > maxl:
-            print 'Argument minLength cannot be greater than maxLength. Setting defaults to min=3 max=30.'
+            print ('Argument minLength cannot be greater than maxLength. Setting defaults to min=3 max=30.')
             minl = 3
             maxl = 30
 
